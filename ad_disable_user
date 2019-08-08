@@ -1,0 +1,54 @@
+##Script for disabling User accounts and removing from all groups and placing in disabled employees OU##
+####
+
+function Disable-ADUserByEID {
+    param (
+    [Parameter(Mandatory = $true)]
+    [string[]]
+    $EID
+    )
+    begin {
+        
+    } ## End Begin block
+    process {
+        try {
+        ##Takes the parameter and defines the user variable
+   		$User = Get-AdUser -Filter "EmployeeID -eq $EID"
+        $Date = (Get-Date -Format 'd')
+        ## Checks for duplicates in the Disabled OU
+        $DupeCheck = Get-ADUser -Filter {Name -eq $User.Name} -SearchBase 'OU'
+        ## If the duplicate check came out with nothing then it will run the if block, if the users name is a duplicate it will run the else block
+        If ($DupeCheck -eq $null) {
+            ## Removes all group membership, this will not remove the domain users group
+            Get-AdUser -Identity $User -Properties memberof | Select-Object -Expandproperty memberof | ? { $_ -ne "OU"} | `
+            ForEach-Object {Remove-adGroupmember -Identity $_ -Members $User -Confirm: $False}
+            ##Moves User to Disabled OU
+		    Move-ADObject -Identity $User -TargetPath 'OU'
+            ##Disables account
+		    Get-ADUser -Filter "EmployeeID -eq $EID" -SearchBase 'OU' | Disable-ADAccount
+            ##If there is a duplicate name then the else block will rename the specified user and place it in the disabled OU
+           } else {
+            ##Variable to set the renaming structure
+            $Rename = $DupeCheck.Surname+","+$DupeCheck.GivenName+"-Disabled-$Date"
+
+            Get-AdUser -Identity $User -Properties memberof | Select-Object -Expandproperty memberof | ? { $_ -ne "OU"} | `
+            ForEach-Object {Remove-adGroupmember -Identity $_ -Members $User -Confirm: $False}
+            #Will rename user by adding "Disabled" and the date at time of disable
+            Rename-ADObject -Identity $User -NewName $Rename
+
+		    Move-ADObject -Identity $User.distinguishedname -TargetPath 'OU'
+
+		    Get-ADUser -Filter "EmployeeID -eq $EID" | Disable-ADAccount
+        }
+
+        }
+        catch {
+            "Error was $_"
+            $line = $_.InvocationInfo.ScriptLineNumber
+            "Error was in Line $line"
+        }
+    } ## End Process block
+    end {
+        
+    } ## End end block
+} 
