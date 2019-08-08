@@ -1,3 +1,4 @@
+#Function to create AD Accounts using employee ID, first name, last name, title, and description as parameters
 function Create-ADAccount {
     param (
     [Parameter(Mandatory = $true)]
@@ -17,6 +18,7 @@ function Create-ADAccount {
     $Description
     )
     begin {
+    	#Makes sure that only numbers 1-7 can be chosen, enables roles to be applied based on number chosen
         $ValidInput = @('1','2','3','4','5','6','7')
         $Role = ''
         while ($Role -eq '')
@@ -137,7 +139,7 @@ $LastName.ToString()}
             Write-Error "The name of this new employee already exists the OU it needs to belong in, Please adjust the name accordingly" -ErrorAction Stop
             
         }
-#Adds AD groups based on title
+	#Adds AD groups based on title
         switch ($Role) {
             1 { Add-ADGroupMember -Identity "$Description" -Members $Username
                 Set-ADUser -Identity $Username -Title $Title
@@ -162,12 +164,13 @@ $LastName.ToString()}
                 Set-ADUser -Identity $Username -Title $Title }
             Default {}
         }
+	#Connects to Exchange
         $s = New-PSSession -ConfigurationName Microsoft.Exchange `
         -ConnectionUri http://SERVERNAME `
         -Authentication Kerberos
-
+	
         Import-PSSession $s -AllowClobber
-        
+        #Enables exchange mailbox based on the AD account that was previously created
         Enable-Mailbox -Identity "$Username" -ActiveSyncMailboxPolicy "POLICY" -RetentionPolicy "POLICY"
         Start-Sleep -s 5
         Enable-Mailbox -Identity "$Username" -Archive
