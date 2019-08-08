@@ -1,0 +1,37 @@
+#This script takes the event that indicates that a computer was booted with a bitlocker recovery key and sends it to a collector computer
+#and then rotates the recovery key protector and backs it up to AD
+Try {
+
+    $Time = (Get-Date) - (New-TimeSpan -Day 1)
+
+    $Computers = (get-winevent -Computer COMPUTERNAME -FilterHashtable @{logname='ForwardedEvents';id='24652';StartTime=$Time}).machinename | Get-Unique
+
+    foreach ($computer in $Computers)   {
+    
+        Invoke-Command -ComputerName $Computer -ScriptBlock {
+            $BLV = Get-BitLockerVolume -MountPoint "C:"
+            $KeyProtectorID = $BLV.KeyProtector | Where-Object {$_.keyprotectortype -eq "RecoveryPassword"} | Select-Object -ExpandProperty keyprotectorid
+            $Remove = foreach ($KeyProtectors in $KeyProtectorID) {
+            Remove-BitlockerKeyProtector -MountPoint "C:" -KeyProtectorId $KeyProtectorID
+            }
+            $Remove
+            If ($? -eq $False) {
+                Write-Host "Keys were not removed"
+            } else {
+                Write-Host "Keys were successfully removed"
+            }
+            Add-BitLockerKeyProtector -MountPoint "C:" -RecoveryPasswordProtector
+            Add-BitLockerKeyProtector -MountPoint "C:" -TpmProtector
+            Backup-BitLockerKeyProtector -MountPoint "C:" -KeyProtectorId $KeyProtectorID
+            If ($? -eq $False) {
+                Write-Host "Key was not backed up"
+            } else {
+                Write-Host "Key was successfully backed up"
+            }
+            Resume-BitLocker -MountPoint "C:"
+        }
+    }
+}
+Catch {
+    Write-Host $_.Exception.Message
+}
