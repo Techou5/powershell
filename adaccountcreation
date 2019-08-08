@@ -142,8 +142,7 @@ $LastName.ToString()}
 	#Adds AD groups based on title
         switch ($Role) {
             1 { Add-ADGroupMember -Identity "$Description" -Members $Username
-                Set-ADUser -Identity $Username -Title $Title
-            }
+                Set-ADUser -Identity $Username -Title $Title}
 
             2 { Add-ADGroupMember -Identity "$Description" -Members $Username
                 Set-ADUser -Identity $Username -Title $Title }
