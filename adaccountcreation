@@ -1,0 +1,185 @@
+function Create-ADAccount {
+    param (
+    [Parameter(Mandatory = $true)]
+    [string]
+    $EID,
+    [Parameter(Mandatory = $true)]
+    [string]
+    $FirstName,
+    [Parameter(Mandatory = $true)]
+    [string]
+    $LastName,
+    [Parameter(Mandatory = $true)]
+    [string]
+    $Title,
+    [Parameter(Mandatory = $true)]
+    [string[]]
+    $Description
+    )
+    begin {
+        $ValidInput = @('1','2','3','4','5','6','7')
+        $Role = ''
+        while ($Role -eq '')
+             {
+                Clear-Host
+                $Role = Read-Host -prompt "Which role does this person hold? Enter the corresponding number.
+                1. Role1
+                2. Role2
+                3. Role3
+                4. Role4
+                5. Role5
+                6. Role6
+                7. Other  
+                "
+        if ($Role -notin $ValidInput)
+        {
+        [console]::Beep(1000, 100)
+        $Role = ''
+        }
+        
+    }
+            
+    } ## End Begin block
+    process {
+        try {
+            
+        #Creates Template for the new account creation based AD Description, it searches through the a template OU and pulls enumerated properites
+        If ($Descriptoin -eq "1111") {
+           
+            $Template = Get-ADUser -Filter "Description -like $Description" -searchbase "OU" -Properties 
+
+'description','postalcode','StreetAddress','HomePhone','Company','homedrive','l','st','physicalDeliveryOfficeName','telephonenumber','department'| Where-Object {$_.givenname 
+
+-like "1111" -AND $_.surname -like "Template"}   
+        } else {
+         
+            $Template = Get-ADUser -Filter "Description -like $Description" -searchbase "OU" -Properties 
+
+'description','postalcode','StreetAddress','HomePhone','Company','homedrive','l','st','physicalDeliveryOfficeName','telephonenumber','department'| Where-Object 
+
+{$_.samaccountname -like "*Template"} 
+        }        
+            #These variables are defined by the previous line's properties
+                $Description = $Template.Description
+                $Company = $Template.Company
+                $HomeDrive = $Template.homedrive
+                $HomePhone = $Template.HomePhone
+                $PostalCode = $Template.postalcode
+                $Department = $Template.department
+                $OfficePhone = $Template.telephonenumber
+                $Street = $Template.StreetAddress
+                $City = $Template.l
+                $State = $Template.st
+                $Office = $Template.physicalDeliveryOfficeName
+                
+            Write-Host $Template
+            #This Do While loop creates the Username and checks for duplicate usernames and goes through until there is no match
+            $i = 1
+            $UsernameCheck = $FirstName.Substring(0,$i)+$LastName
+
+            $CheckSAM = (Get-ADUser -Filter "samaccountname -like '$UsernameCheck'").samaccountname
+            Write-Host $CheckSAM
+            If ($UsernameCheck -eq $CheckSAM) {
+            Do {
+                $i++
+                $UsernameCycle = $FirstName.Substring(0,$i)+$LastName
+                $CheckSAMTwo = (Get-ADUser -Filter "samaccountname -like '$UsernameCycle'").samaccountname
+            }
+            while ($UsernameCycle -eq $CheckSAMTwo)
+            }
+            $Username = $FirstName.Substring(0,$i)+$LastName
+
+            Write-Host $Username
+            #Name Creation Variable
+            $Name = $FirstName+" "+$LastName
+            Write-Host $Name
+            #Switch to determine which OU to place the new account based on the OU of the template
+            switch -wildcard ($Template.distinguishedname) {
+                "*OU1" { $Path = "OU2" }
+                "*OU3" { $Path = "OU4" }
+                "*OU4" { $Path = "OU5" }
+                Default {$Path = "OU6"}
+            }
+        Write-Host $Path
+        #This variable checks for duplicate accounts
+        $DupeCheck = Get-AdUser -Filter * -searchbase $Path -Properties givenname | Where-Object {$_.givenname -eq $FirstName.ToString() -AND $_.surname -eq 
+
+$LastName.ToString()}
+        #This if statement says if there are no duplicates then to create the account with all neccesary attributes using previously defined variables
+        If ($DupeCheck -eq $null) {
+            New-ADUser -Name $Name -Enabled $True `
+             -GivenName $FirstName `
+             -Surname $LastName `
+             -samaccountname $Username `
+             -accountpassword (ConvertTo-SecureString -asplaintext "Password1@" -force) `
+             -Path $Path `
+             -Company "$Company" `
+             -EmployeeID $EID `
+             -Description "$Description" `
+             -Office "$Office" `
+             -HomeDrive "$HomeDrive" `
+             -HomePhone "$HomePhone" `
+             -HomeDirectory "PATH" `
+             -PostalCode "$PostalCode" `
+             -StreetAddress "$Street" `
+             -City "$City" `
+             -State "$State" `
+             -Department "$Department" `
+             -OfficePhone "$OfficePhone" `
+             -UserPrincipalName $Username"UPNSUFFIX"
+	     #Renames User Based on common naming convention
+             Rename-ADObject -Identity "CN=$Name,$Path" -NewName "$LastName, $FirstName"
+             $Identity = (Get-ADUser $Username).distinguishedname
+             Set-ADObject -Identity "$Identity" -DisplayName "$LastName, $FirstName" 
+
+           } else {
+            #This will terminate script if a duplicate is found
+            Write-Error "The name of this new employee already exists the OU it needs to belong in, Please adjust the name accordingly" -ErrorAction Stop
+            
+        }
+#Adds AD groups based on title
+        switch ($Role) {
+            1 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title
+            }
+
+            2 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title }
+
+            3 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title  }
+
+            4 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title }
+
+            5 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title  }
+
+            6 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title  }
+
+            7 { Add-ADGroupMember -Identity "$Description" -Members $Username
+                Set-ADUser -Identity $Username -Title $Title }
+            Default {}
+        }
+        $s = New-PSSession -ConfigurationName Microsoft.Exchange `
+        -ConnectionUri http://SERVERNAME `
+        -Authentication Kerberos
+
+        Import-PSSession $s -AllowClobber
+        
+        Enable-Mailbox -Identity "$Username" -ActiveSyncMailboxPolicy "POLICY" -RetentionPolicy "POLICY"
+        Start-Sleep -s 5
+        Enable-Mailbox -Identity "$Username" -Archive
+        Set-CASMailbox -Identity "$Username" -PopEnabled $False
+        }
+        catch {
+            "Error was $_"
+            $line = $_.InvocationInfo.ScriptLineNumber
+            "Error was in Line $line"
+        }
+    } ## End Process block
+    end {
+        
+    } ## End end block
+} 
