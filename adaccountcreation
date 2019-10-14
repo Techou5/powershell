@@ -46,7 +46,7 @@ function Create-ADAccount {
         try {
             
         #Creates Template for the new account creation based AD Description, it searches through the a template OU and pulls enumerated properites
-        If ($Descriptoin -eq "1111") {
+        If ($Description -eq "1111") {
            
             $Template = Get-ADUser -Filter "Description -like $Description" -searchbase "OU" -Properties 
 
